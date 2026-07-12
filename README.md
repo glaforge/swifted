@@ -4,7 +4,7 @@ SwiftEd is a native macOS text and code editor built with **Swift** and **SwiftU
 
 ![SwiftEd Screenshot](screenshot.png)
 
-This is an AI-generated project, developed collaboratively using [Antigravity](https://deepmind.google/) from Google. It is a minimal editor designed to launch rapidly and provide a lightweight way to browse source files. It is not intended to be a full-fledged IDE or compete with heavier, more feature-rich developer tools.
+This is an AI-generated project, developed collaboratively using [Antigravity](https://antigravity.google/) from Google. It is a minimal editor designed to launch rapidly and provide a lightweight way to browse source files. It is not intended to be a full-fledged IDE or compete with heavier, more feature-rich developer tools.
 
 ## Key Features
 
