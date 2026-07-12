@@ -1,0 +1,42 @@
+{
+  "originHash" : "4154b319eac2e29e53aa77608faa4a2db2c63ca085b612cf0969eba91e74f623",
+  "pins" : [
+    {
+      "identity" : "runestone",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/simonbs/Runestone",
+      "state" : {
+        "revision" : "1884b67110ce35d830a73b34827d3cd1f50418c5",
+        "version" : "0.4.2"
+      }
+    },
+    {
+      "identity" : "swifttreesitter",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ChimeHQ/SwiftTreeSitter.git",
+      "state" : {
+        "revision" : "08ef81eb8620617b55b08868126707ad72bf754f",
+        "version" : "0.25.0"
+      }
+    },
+    {
+      "identity" : "tree-sitter",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tree-sitter/tree-sitter",
+      "state" : {
+        "revision" : "da6fe9beb4f7f67beb75914ca8e0d48ae48d6406",
+        "version" : "0.25.10"
+      }
+    },
+    {
+      "identity" : "treesitterlanguages",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/simonbs/TreeSitterLanguages.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "15cf3a9ec3ab95e0d058b7df9f35619123c9e02d"
+      }
+    }
+  ],
+  "version" : 3
+}
