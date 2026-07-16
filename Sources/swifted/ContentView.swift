@@ -249,9 +249,10 @@ struct ContentView: View {
             
             ToolbarItem(placement: .automatic) {
                 Toggle(isOn: $appWordWrap) {
-                    Image(systemName: "text.word.spacing")
+                    Label("Word Wrap", systemImage: "return")
                 }
                 .toggleStyle(.button)
+                .labelStyle(.iconOnly)
                 .help("Toggle Word Wrap")
                 .controlSize(appFontSize.controlSize)
             }
