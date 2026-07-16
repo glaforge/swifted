@@ -68,10 +68,15 @@ struct SwiftedApp: App {
                 }
                 .keyboardShortcut("n", modifiers: .command)
                 
+                Button("New Scratch File") {
+                    NotificationCenter.default.post(name: Notification.Name("NewScratchFile"), object: nil)
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+                
                 Button("New Folder...") {
                     NotificationCenter.default.post(name: Notification.Name("NewFolder"), object: nil)
                 }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .keyboardShortcut("n", modifiers: [.command, .option])
                 
                 Divider()
                 

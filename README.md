@@ -51,7 +51,8 @@ Once installed, you can launch **Swifted** directly from Spotlight or Launchpad 
 **File Management**
 *   `Cmd + O`: Open File/Folder
 *   `Cmd + N`: New File
-*   `Cmd + Shift + N`: New Folder
+*   `Cmd + Shift + N`: New Scratch File
+*   `Cmd + Option + N`: New Folder
 *   `Return`: Rename (when selected in sidebar)
 *   `Cmd + Delete`: Delete
 

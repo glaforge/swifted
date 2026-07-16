@@ -221,6 +221,15 @@ struct ContentView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NewScratchFile"))) { _ in
+            let tempDir = FileManager.default.temporaryDirectory
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+            let dateString = dateFormatter.string(from: Date())
+            let scratchURL = tempDir.appendingPathComponent("scratch_\(dateString).txt")
+            FileManager.default.createFile(atPath: scratchURL.path, contents: Data())
+            selectedFile = scratchURL
+        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 if let file = selectedFile {
