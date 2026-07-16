@@ -112,6 +112,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @AppStorage("appTheme") private var appTheme: AppTheme = .system
     @AppStorage("appFontSize") private var appFontSize: AppFontSize = .medium
+    @AppStorage("appWordWrap") private var appWordWrap: Bool = false
     
     @State private var rootURL: URL = {
         if CommandLine.arguments.count > 1 {
@@ -247,6 +248,15 @@ struct ContentView: View {
             }
             
             ToolbarItem(placement: .automatic) {
+                Toggle(isOn: $appWordWrap) {
+                    Image(systemName: "text.word.spacing")
+                }
+                .toggleStyle(.button)
+                .help("Toggle Word Wrap")
+                .controlSize(appFontSize.controlSize)
+            }
+            
+            ToolbarItem(placement: .automatic) {
                 Picker("Font Size", selection: $appFontSize) {
                     ForEach(AppFontSize.allCases) { size in
                         Text(size.label).tag(size)
@@ -279,6 +289,7 @@ struct CustomTitleView: View {
     let fileURL: URL
     let rootURL: URL
     @AppStorage("appFontSize") private var appFontSize: AppFontSize = .medium
+    @AppStorage("appWordWrap") private var appWordWrap: Bool = false
     
     var customText: Text {
         let (baseDir, subdirs) = formatPath()

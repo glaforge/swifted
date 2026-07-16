@@ -321,6 +321,7 @@ struct EditorView: NSViewRepresentable {
     @Environment(\.colorScheme) var colorScheme
     @AppStorage("showLineNumbers") var showLineNumbers: Bool = true
     @AppStorage("appFontSize") var appFontSize: AppFontSize = .medium
+    @AppStorage("appWordWrap") var appWordWrap: Bool = false
     
     func makeNSView(context: Context) -> NSStackView {
         let stackView = NSStackView()
@@ -343,16 +344,16 @@ struct EditorView: NSViewRepresentable {
         let textLayoutManager = NSTextLayoutManager()
         textContentStorage.addTextLayoutManager(textLayoutManager)
         
-        let textContainer = NSTextContainer(size: CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
-        textContainer.widthTracksTextView = false
+        let textContainer = NSTextContainer(size: CGSize(width: appWordWrap ? 0 : CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
+        textContainer.widthTracksTextView = appWordWrap
         textLayoutManager.textContainer = textContainer
         
         let textView = NSTextView(frame: CGRect(x: 0, y: 0, width: 10000, height: 10000), textContainer: textContainer)
         textView.minSize = NSSize(width: 0.0, height: 0.0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = true
-        textView.autoresizingMask = [] // Remove .width and .height so it can grow
+        textView.isHorizontallyResizable = !appWordWrap
+        textView.autoresizingMask = appWordWrap ? [.width] : [] // Allow width to track scrollview if wrapping
         textView.font = NSFont.monospacedSystemFont(ofSize: appFontSize.codeSize, weight: .regular)
         textView.allowsUndo = true
         textView.delegate = context.coordinator
@@ -431,6 +432,21 @@ struct EditorView: NSViewRepresentable {
             let newGutterFontSize = max(9.0, appFontSize.codeSize - 3.0)
             if gutterView.baseFontSize != newGutterFontSize {
                 gutterView.baseFontSize = newGutterFontSize
+            }
+        }
+        
+        if let textView = scrollView.documentView as? NSTextView, let textContainer = textView.textContainer {
+            if textContainer.widthTracksTextView != appWordWrap {
+                textContainer.widthTracksTextView = appWordWrap
+                textContainer.size = CGSize(width: appWordWrap ? 0 : CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+                textView.isHorizontallyResizable = !appWordWrap
+                if appWordWrap {
+                    textView.autoresizingMask = [.width]
+                    textView.frame.size.width = scrollView.contentSize.width
+                } else {
+                    textView.autoresizingMask = []
+                    textView.frame.size.width = max(textView.frame.width, scrollView.contentSize.width)
+                }
             }
         }
         
