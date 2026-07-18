@@ -26,7 +26,19 @@ This is an AI-generated project, developed collaboratively using [Antigravity](h
 
 ## Getting Started
 
-SwiftEd uses the standard Swift Package Manager.
+SwiftEd uses the standard Swift Package Manager and utilizes Git submodules for its language grammars.
+
+### Cloning & Submodules
+
+To clone the repository along with all submodules:
+```bash
+git clone --recursive <repository-url>
+```
+
+If you have already cloned the repository, populate the submodules by running:
+```bash
+git submodule update --init --recursive
+```
 
 ### Compiling
 ```bash
