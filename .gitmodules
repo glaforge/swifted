@@ -1,0 +1,6 @@
+[submodule "Grammars/tree-sitter-kotlin"]
+	path = Grammars/tree-sitter-kotlin
+	url = https://github.com/fwcd/tree-sitter-kotlin
+[submodule "Grammars/tree-sitter-groovy"]
+	path = Grammars/tree-sitter-groovy
+	url = https://github.com/Decodetalkers/tree-sitter-groovy
