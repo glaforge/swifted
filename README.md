@@ -40,6 +40,14 @@ If you have already cloned the repository, populate the submodules by running:
 git submodule update --init --recursive
 ```
 
+After checking out the submodules, you need to generate the Tree-sitter parser source code (e.g. for Groovy) before compiling:
+```bash
+cd Grammars/tree-sitter-groovy
+npm install --ignore-scripts
+npx -p tree-sitter-cli tree-sitter generate
+cd ../..
+```
+
 ### Compiling
 ```bash
 swift build
