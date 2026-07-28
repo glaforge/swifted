@@ -12,6 +12,7 @@ This is an AI-generated project, developed collaboratively using [Antigravity](h
 *   **Text Rendering**: Uses **TextKit 2** (`NSTextContentStorage`, `NSTextLayoutManager`) for asynchronous, lazy layout.
 *   **Piece Table Data Structure**: Uses a Piece Table implementation for the text buffer to efficiently handle insertions and deletions.
 *   **Syntax Highlighting**: Parses syntax using **TreeSitter** via `SwiftTreeSitter`. Highlighting is performed asynchronously.
+*   **In-Document Search**: Integrated text search (`Cmd + F`) with match highlighting, next/previous navigation, match counts, and case sensitivity toggling.
 *   **Custom Line Numbers**: Uses a custom `LineNumberGutterView` that hooks into TextKit 2 layout fragments.
 *   **Semantic Zooming**: Per-document magnification and scroll position tracking via `ViewStateStore`.
 *   **Live Preview**: Integrated HTML and Markdown rendering via `WKWebView`.
@@ -26,7 +27,9 @@ This is an AI-generated project, developed collaboratively using [Antigravity](h
 
 ## Getting Started
 
-SwiftEd uses the standard Swift Package Manager and utilizes Git submodules for its language grammars.
+### Downloads
+
+Pre-built, ready-to-run macOS `.app` bundles are automatically compiled and published for every release. You can download the latest version directly from the [GitHub Releases](https://github.com/glaforge/swifted/releases) page.
 
 ### Cloning & Submodules
 
@@ -60,7 +63,7 @@ killall swifted && swift run swifted <folder_to_open>
 ```
 
 ### Installing as a macOS App
-To compile the release build, generate a `.app` bundle, and install it into your `/Applications` directory, simply run the included install script:
+To compile the release build locally, generate a `.app` bundle, and install it into your `/Applications` directory, simply run the included install script:
 ```bash
 ./install.sh
 ```
@@ -75,6 +78,13 @@ Once installed, you can launch **Swifted** directly from Spotlight or Launchpad 
 *   `Cmd + Option + N`: New Folder
 *   `Return`: Rename (when selected in sidebar)
 *   `Cmd + Delete`: Delete
+
+**Search & Navigation**
+*   `Cmd + F`: Find in Document
+*   `Cmd + G` or `Return` (in search bar): Next Match
+*   `Cmd + Shift + G` or `Shift + Return` (in search bar): Previous Match
+*   `Option + C`: Toggle Case Sensitivity
+*   `Escape`: Dismiss Find Bar
 
 **View & Layout**
 *   `Cmd + B`: Toggle Sidebar
