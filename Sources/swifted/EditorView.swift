@@ -770,6 +770,20 @@ struct EditorRepresentable: NSViewRepresentable {
             }
         }
         
+        scrollView.contentView.postsFrameChangedNotifications = true
+        context.coordinator.frameObserver = NotificationCenter.default.addObserver(
+            forName: NSView.frameDidChangeNotification,
+            object: scrollView.contentView,
+            queue: .main
+        ) { [weak scrollView] _ in
+            guard let sv = scrollView, let tv = sv.documentView as? NSTextView else { return }
+            if UserDefaults.standard.bool(forKey: "appWordWrap") {
+                if tv.frame.size.width != sv.contentSize.width {
+                    tv.frame.size.width = sv.contentSize.width
+                }
+            }
+        }
+        
         context.coordinator.scrollView = scrollView
         context.coordinator.magnificationObservation = scrollView.observe(\.magnification, options: [.new]) { [weak coordinator = context.coordinator, weak gutterView] (sv, change) in
             Task { @MainActor in
@@ -939,6 +953,7 @@ struct EditorRepresentable: NSViewRepresentable {
         var currentURL: URL?
         var textStorage: PieceTableTextStorage?
         var boundsObserver: (any Sendable)?
+        var frameObserver: (any Sendable)?
         var magnificationObservation: NSKeyValueObservation?
         weak var scrollView: NSScrollView?
         private var saveTask: Task<Void, Never>?
@@ -1018,6 +1033,9 @@ struct EditorRepresentable: NSViewRepresentable {
         deinit {
             magnificationObservation?.invalidate()
             if let obs = boundsObserver {
+                NotificationCenter.default.removeObserver(obs)
+            }
+            if let obs = frameObserver {
                 NotificationCenter.default.removeObserver(obs)
             }
             NotificationCenter.default.removeObserver(self)
