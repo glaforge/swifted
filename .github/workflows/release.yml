@@ -20,6 +20,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Generate Tree-sitter parsers
+        run: |
+          cd Grammars/tree-sitter-groovy
+          npm install --ignore-scripts
+          npx -p tree-sitter-cli tree-sitter generate
+          cd ../..
+
       - name: Build executable
         run: |
           swift build -c release
