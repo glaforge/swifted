@@ -157,6 +157,17 @@ actor Highlighter {
     
     init() {}
     
+    private func findQueryURL(bundleName: String, fileName: String = "highlights", ext: String = "scm", fallback: () -> URL?) -> URL? {
+        if let resourceURL = Bundle.main.resourceURL {
+            let bundleURL = resourceURL.appendingPathComponent("\(bundleName).bundle")
+            let fileURL = bundleURL.appendingPathComponent("\(fileName).\(ext)")
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                return fileURL
+            }
+        }
+        return fallback()
+    }
+    
     func setLanguage(fromExtension ext: String) async {
         let normalized = ext.lowercased()
         let mappedExt = (normalized == "plist" || normalized == "xml") ? "html" : normalized
@@ -185,23 +196,36 @@ actor Highlighter {
         
         var queryURL: URL?
         switch lang {
-        case .java: queryURL = TreeSitterJavaQueries.Query.highlightsFileURL
-        case .javascript: queryURL = TreeSitterJavaScriptQueries.Query.highlightsFileURL
-        case .typescript: queryURL = TreeSitterTypeScriptQueries.Query.highlightsFileURL
-        case .markdown: queryURL = TreeSitterMarkdownQueries.Query.highlightsFileURL
-        case .bash: queryURL = TreeSitterBashQueries.Query.highlightsFileURL
-        case .python: queryURL = TreeSitterPythonQueries.Query.highlightsFileURL
-        case .json: queryURL = TreeSitterJSONQueries.Query.highlightsFileURL
-        case .swift: queryURL = TreeSitterSwiftQueries.Query.highlightsFileURL
-        case .go: queryURL = TreeSitterGoQueries.Query.highlightsFileURL
-        case .c, .h: queryURL = TreeSitterCQueries.Query.highlightsFileURL
-        case .cpp, .hpp, .cc: queryURL = TreeSitterCPPQueries.Query.highlightsFileURL
-        case .html: queryURL = TreeSitterHTMLQueries.Query.highlightsFileURL
-        case .css: queryURL = TreeSitterCSSQueries.Query.highlightsFileURL
+        case .java:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterJavaQueries") { TreeSitterJavaQueries.Query.highlightsFileURL }
+        case .javascript:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterJavaScriptQueries") { TreeSitterJavaScriptQueries.Query.highlightsFileURL }
+        case .typescript:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterTypeScriptQueries") { TreeSitterTypeScriptQueries.Query.highlightsFileURL }
+        case .markdown:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterMarkdownQueries") { TreeSitterMarkdownQueries.Query.highlightsFileURL }
+        case .bash:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterBashQueries") { TreeSitterBashQueries.Query.highlightsFileURL }
+        case .python:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterPythonQueries") { TreeSitterPythonQueries.Query.highlightsFileURL }
+        case .json:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterJSONQueries") { TreeSitterJSONQueries.Query.highlightsFileURL }
+        case .swift:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterSwiftQueries") { TreeSitterSwiftQueries.Query.highlightsFileURL }
+        case .go:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterGoQueries") { TreeSitterGoQueries.Query.highlightsFileURL }
+        case .c, .h:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterCQueries") { TreeSitterCQueries.Query.highlightsFileURL }
+        case .cpp, .hpp, .cc:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterCPPQueries") { TreeSitterCPPQueries.Query.highlightsFileURL }
+        case .html:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterHTMLQueries") { TreeSitterHTMLQueries.Query.highlightsFileURL }
+        case .css:
+            queryURL = findQueryURL(bundleName: "TreeSitterLanguages_TreeSitterCSSQueries") { TreeSitterCSSQueries.Query.highlightsFileURL }
         case .kotlin:
-            queryURL = Bundle.module.url(forResource: "kotlin", withExtension: "scm")
+            queryURL = findQueryURL(bundleName: "swifted_swifted", fileName: "kotlin") { Bundle.module.url(forResource: "kotlin", withExtension: "scm") }
         case .groovy, .gradle:
-            queryURL = Bundle.module.url(forResource: "groovy", withExtension: "scm")
+            queryURL = findQueryURL(bundleName: "swifted_swifted", fileName: "groovy") { Bundle.module.url(forResource: "groovy", withExtension: "scm") }
         }
         
         if let url = queryURL {
