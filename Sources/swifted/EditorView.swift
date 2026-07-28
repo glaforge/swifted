@@ -171,6 +171,40 @@ class PieceTableTextStorage: NSTextStorage, @unchecked Sendable {
         return str
     }
     
+    // Search match state
+    var searchMatches: [NSRange] = []
+    var currentMatchIndex: Int = -1
+    
+    func findMatches(query: String, caseSensitive: Bool) -> [NSRange] {
+        guard !query.isEmpty else { return [] }
+        let nsText = self.string as NSString
+        let options: NSString.CompareOptions = caseSensitive ? [] : [.caseInsensitive]
+        var matches: [NSRange] = []
+        var searchRange = NSRange(location: 0, length: nsText.length)
+        
+        while searchRange.location < nsText.length {
+            let found = nsText.range(of: query, options: options, range: searchRange)
+            if found.location == NSNotFound || found.length == 0 {
+                break
+            }
+            matches.append(found)
+            let nextStart = found.location + max(1, found.length)
+            if nextStart >= nsText.length {
+                break
+            }
+            searchRange = NSRange(location: nextStart, length: nsText.length - nextStart)
+        }
+        return matches
+    }
+    
+    func updateSearchMatches(matches: [NSRange], currentIndex: Int) {
+        self.searchMatches = matches
+        self.currentMatchIndex = currentIndex
+        self.beginEditing()
+        self.edited(.editedAttributes, range: NSRange(location: 0, length: self.length), changeInLength: 0)
+        self.endEditing()
+    }
+    
     override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
         if location >= self.length {
             return [:]
@@ -247,6 +281,54 @@ class PieceTableTextStorage: NSTextStorage, @unchecked Sendable {
                 range.pointee = NSRange(location: location, length: maxLen)
             }
         }
+        
+        if !self.searchMatches.isEmpty {
+            var sLeft = 0
+            var sRight = self.searchMatches.count - 1
+            var foundMatchIdx: Int? = nil
+            
+            while sLeft <= sRight {
+                let sMid = sLeft + (sRight - sLeft) / 2
+                let mRange = self.searchMatches[sMid]
+                if location < mRange.location {
+                    sRight = sMid - 1
+                } else if location >= NSMaxRange(mRange) {
+                    sLeft = sMid + 1
+                } else {
+                    foundMatchIdx = sMid
+                    break
+                }
+            }
+            
+            if let mIdx = foundMatchIdx {
+                if mIdx == self.currentMatchIndex {
+                    attrs[.backgroundColor] = NSColor.systemOrange.withAlphaComponent(0.55)
+                } else {
+                    attrs[.backgroundColor] = NSColor.systemYellow.withAlphaComponent(0.3)
+                }
+            }
+            
+            if let range = range {
+                let currentEff = range.pointee
+                if let mIdx = foundMatchIdx {
+                    let mRange = self.searchMatches[mIdx]
+                    let newEnd = min(NSMaxRange(currentEff), NSMaxRange(mRange))
+                    let newLen = max(0, newEnd - location)
+                    range.pointee = NSRange(location: location, length: newLen)
+                } else {
+                    var nextSearchMatchLoc = limit
+                    if sLeft < self.searchMatches.count {
+                        nextSearchMatchLoc = self.searchMatches[sLeft].location
+                    }
+                    if nextSearchMatchLoc < NSMaxRange(currentEff) {
+                        let newEnd = min(NSMaxRange(currentEff), nextSearchMatchLoc)
+                        let newLen = max(0, newEnd - location)
+                        range.pointee = NSRange(location: location, length: newLen)
+                    }
+                }
+            }
+        }
+        
         return attrs
     }
     
@@ -316,8 +398,315 @@ class PieceTableTextStorage: NSTextStorage, @unchecked Sendable {
     }
 }
 
-struct EditorView: NSViewRepresentable {
+class AutoFocusSearchField: NSSearchField {
+    var focusSignal: UUID? {
+        didSet {
+            if focusSignal != oldValue {
+                focusSelf()
+            }
+        }
+    }
+    
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        focusSelf()
+    }
+    
+    func focusSelf() {
+        guard let win = self.window else { return }
+        DispatchQueue.main.async {
+            win.makeFirstResponder(self)
+            if let fieldEditor = self.currentEditor() {
+                fieldEditor.selectAll(nil)
+            }
+        }
+    }
+}
+
+struct FindQueryField: NSViewRepresentable {
+    @Binding var text: String
+    var focusSignal: UUID
+    var onNext: () -> Void
+    var onPrevious: () -> Void
+    var onClose: () -> Void
+    
+    @AppStorage("appFontSize") private var appFontSize: AppFontSize = .medium
+    
+    @MainActor
+    class Coordinator: NSObject, NSSearchFieldDelegate, NSTextFieldDelegate {
+        var parent: FindQueryField
+        
+        init(_ parent: FindQueryField) {
+            self.parent = parent
+        }
+        
+        func controlTextDidChange(_ obj: Notification) {
+            if let tf = obj.object as? NSTextField {
+                parent.text = tf.stringValue
+            }
+        }
+        
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                if NSApp.currentEvent?.modifierFlags.contains(.shift) == true {
+                    parent.onPrevious()
+                } else {
+                    parent.onNext()
+                }
+                return true
+            } else if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+                parent.onClose()
+                return true
+            }
+            return false
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    
+    func makeNSView(context: Context) -> AutoFocusSearchField {
+        let field = AutoFocusSearchField()
+        field.placeholderString = "Find"
+        field.delegate = context.coordinator
+        field.controlSize = appFontSize.nsControlSize
+        let size: CGFloat = appFontSize == .small ? 11 : (appFontSize == .large ? 18 : 13)
+        field.font = NSFont.systemFont(ofSize: size)
+        field.focusSignal = focusSignal
+        return field
+    }
+    
+    func updateNSView(_ nsView: AutoFocusSearchField, context: Context) {
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+        let targetControlSize = appFontSize.nsControlSize
+        if nsView.controlSize != targetControlSize {
+            nsView.controlSize = targetControlSize
+        }
+        let targetFontSize: CGFloat = appFontSize == .small ? 11 : (appFontSize == .large ? 18 : 13)
+        if nsView.font?.pointSize != targetFontSize {
+            nsView.font = NSFont.systemFont(ofSize: targetFontSize)
+        }
+        if nsView.focusSignal != focusSignal {
+            nsView.focusSignal = focusSignal
+        }
+    }
+}
+
+extension AppFontSize {
+    var nsControlSize: NSControl.ControlSize {
+        switch self {
+        case .small: return .small
+        case .medium: return .regular
+        case .large: return .large
+        }
+    }
+}
+
+struct FindBarView: View {
+    @Binding var searchQuery: String
+    @Binding var isCaseSensitive: Bool
+    var focusSignal: UUID
+    var matchCount: Int
+    var currentIndex: Int
+    var onNext: () -> Void
+    var onPrevious: () -> Void
+    var onClose: () -> Void
+    
+    @AppStorage("appFontSize") private var appFontSize: AppFontSize = .medium
+    
+    private var fieldHeight: CGFloat {
+        switch appFontSize {
+        case .small: return 22
+        case .medium: return 26
+        case .large: return 34
+        }
+    }
+    
+    private var fieldWidth: CGFloat {
+        switch appFontSize {
+        case .small: return 180
+        case .medium: return 230
+        case .large: return 320
+        }
+    }
+    
+    private var fontSize: CGFloat {
+        switch appFontSize {
+        case .small: return 11
+        case .medium: return 13
+        case .large: return 18
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: appFontSize == .large ? 12 : 8) {
+            FindQueryField(
+                text: $searchQuery,
+                focusSignal: focusSignal,
+                onNext: onNext,
+                onPrevious: onPrevious,
+                onClose: onClose
+            )
+            .frame(width: fieldWidth, height: fieldHeight)
+            
+            Text(matchCount > 0 ? "\(currentIndex + 1) of \(matchCount)" : (searchQuery.isEmpty ? "" : "No results"))
+                .font(.system(size: fontSize, weight: .medium))
+                .foregroundColor(matchCount > 0 ? .secondary : (searchQuery.isEmpty ? .secondary : .red))
+                .frame(minWidth: appFontSize == .large ? 90 : 65, alignment: .leading)
+            
+            Button(action: onPrevious) {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: fontSize, weight: .semibold))
+            }
+            .buttonStyle(.borderless)
+            .controlSize(appFontSize.controlSize)
+            .disabled(matchCount == 0)
+            .help("Previous Match (Shift+Cmd+G)")
+            
+            Button(action: onNext) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: fontSize, weight: .semibold))
+            }
+            .buttonStyle(.borderless)
+            .controlSize(appFontSize.controlSize)
+            .disabled(matchCount == 0)
+            .help("Next Match (Cmd+G)")
+            
+            Button(action: {
+                isCaseSensitive.toggle()
+            }) {
+                Text("Aa")
+                    .font(.system(size: fontSize, weight: isCaseSensitive ? .bold : .regular))
+                    .foregroundColor(isCaseSensitive ? .accentColor : .secondary)
+                    .padding(.horizontal, appFontSize == .large ? 6 : 4)
+                    .padding(.vertical, appFontSize == .large ? 4 : 2)
+                    .background(isCaseSensitive ? Color.accentColor.opacity(0.15) : Color.clear)
+                    .cornerRadius(4)
+            }
+            .buttonStyle(.plain)
+            .controlSize(appFontSize.controlSize)
+            .help("Match Case")
+            
+            Spacer()
+            
+            Button(action: onClose) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: fontSize + 2))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .controlSize(appFontSize.controlSize)
+            .help("Close (Escape)")
+        }
+        .padding(.horizontal, appFontSize == .large ? 14 : 10)
+        .padding(.vertical, appFontSize == .large ? 10 : 6)
+        .background(Color(NSColor.windowBackgroundColor))
+        .overlay(
+            Rectangle().frame(height: 1).foregroundColor(Color(NSColor.separatorColor)),
+            alignment: .bottom
+        )
+    }
+}
+
+struct EditorView: View {
     var fileURL: URL
+    
+    @State private var showFindBar: Bool = false
+    @State private var searchQuery: String = ""
+    @State private var isCaseSensitive: Bool = false
+    @State private var currentMatchIndex: Int = 0
+    @State private var matchRanges: [NSRange] = []
+    @State private var focusSignal: UUID = UUID()
+    @State private var navSignal: UUID = UUID()
+    @State private var navDirection: Int = 0
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            if showFindBar {
+                FindBarView(
+                    searchQuery: $searchQuery,
+                    isCaseSensitive: $isCaseSensitive,
+                    focusSignal: focusSignal,
+                    matchCount: matchRanges.count,
+                    currentIndex: currentMatchIndex,
+                    onNext: { navigateMatch(direction: 1) },
+                    onPrevious: { navigateMatch(direction: -1) },
+                    onClose: { closeFindBar() }
+                )
+            }
+            
+            EditorRepresentable(
+                fileURL: fileURL,
+                showFindBar: showFindBar,
+                searchQuery: searchQuery,
+                isCaseSensitive: isCaseSensitive,
+                navSignal: navSignal,
+                navDirection: navDirection,
+                onMatchesUpdated: { matches, idx in
+                    self.matchRanges = matches
+                    self.currentMatchIndex = idx
+                },
+                onSelectedTextExtracted: { selectedText in
+                    if !selectedText.isEmpty {
+                        self.searchQuery = selectedText
+                    }
+                }
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .findToggle)) { _ in
+            if !showFindBar {
+                showFindBar = true
+                focusSignal = UUID()
+            } else {
+                focusSignal = UUID()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .findNext)) { _ in
+            if !showFindBar {
+                showFindBar = true
+                focusSignal = UUID()
+            } else {
+                navigateMatch(direction: 1)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .findPrevious)) { _ in
+            if !showFindBar {
+                showFindBar = true
+                focusSignal = UUID()
+            } else {
+                navigateMatch(direction: -1)
+            }
+        }
+        .onChange(of: fileURL) { _, _ in
+            showFindBar = false
+            searchQuery = ""
+            matchRanges = []
+            currentMatchIndex = 0
+        }
+    }
+    
+    private func navigateMatch(direction: Int) {
+        guard !matchRanges.isEmpty else { return }
+        navDirection = direction
+        navSignal = UUID()
+    }
+    
+    private func closeFindBar() {
+        showFindBar = false
+    }
+}
+
+struct EditorRepresentable: NSViewRepresentable {
+    var fileURL: URL
+    var showFindBar: Bool
+    var searchQuery: String
+    var isCaseSensitive: Bool
+    var navSignal: UUID
+    var navDirection: Int
+    var onMatchesUpdated: ([NSRange], Int) -> Void
+    var onSelectedTextExtracted: ((String) -> Void)?
+    
     @Environment(\.colorScheme) var colorScheme
     @AppStorage("showLineNumbers") var showLineNumbers: Bool = true
     @AppStorage("appFontSize") var appFontSize: AppFontSize = .medium
@@ -473,24 +862,127 @@ struct EditorView: NSViewRepresentable {
                 loadText(from: fileURL, into: textStorage, scrollView: scrollView)
             }
         }
+        
+        // Handle Find bar updates & searching
+        let coord = context.coordinator
+        let isShowFindBarChanged = coord.lastShowFindBar != showFindBar
+        coord.lastShowFindBar = showFindBar
+        
+        if showFindBar {
+            if isShowFindBarChanged {
+                if let sel = coord.getSelectedText() {
+                    onSelectedTextExtracted?(sel)
+                }
+            }
+            
+            let queryChanged = coord.lastSearchQuery != searchQuery || coord.lastCaseSensitive != isCaseSensitive
+            let navChanged = coord.lastNavSignal != navSignal
+            
+            coord.lastNavSignal = navSignal
+            
+            if queryChanged || isShowFindBarChanged {
+                coord.lastSearchQuery = searchQuery
+                coord.lastCaseSensitive = isCaseSensitive
+                
+                if let storage = coord.textStorage {
+                    let matches = storage.findMatches(query: searchQuery, caseSensitive: isCaseSensitive)
+                    var initialIdx = 0
+                    if !matches.isEmpty {
+                        if let sv = coord.scrollView, let tv = sv.documentView as? NSTextView {
+                            let cursorPos = tv.selectedRange().location
+                            if let foundIdx = matches.firstIndex(where: { $0.location >= cursorPos }) {
+                                initialIdx = foundIdx
+                            }
+                        }
+                        coord.scrollToMatch(index: initialIdx, matches: matches)
+                    } else {
+                        storage.updateSearchMatches(matches: [], currentIndex: -1)
+                        coord.lastMatches = []
+                        coord.lastMatchIndex = -1
+                    }
+                    DispatchQueue.main.async {
+                        onMatchesUpdated(matches, initialIdx)
+                    }
+                }
+            } else if navChanged && !coord.lastMatches.isEmpty {
+                let matches = coord.lastMatches
+                var newIdx = coord.lastMatchIndex
+                if navDirection == 1 {
+                    newIdx = (newIdx + 1) % matches.count
+                } else if navDirection == -1 {
+                    newIdx = (newIdx - 1 + matches.count) % matches.count
+                }
+                coord.scrollToMatch(index: newIdx, matches: matches)
+                DispatchQueue.main.async {
+                    onMatchesUpdated(matches, newIdx)
+                }
+            }
+        } else if isShowFindBarChanged {
+            coord.lastSearchQuery = ""
+            coord.lastMatches = []
+            coord.lastMatchIndex = -1
+            if let storage = coord.textStorage {
+                storage.updateSearchMatches(matches: [], currentIndex: -1)
+            }
+            coord.makeTextViewFirstResponder()
+            DispatchQueue.main.async {
+                onMatchesUpdated([], 0)
+            }
+        }
     }
     
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
     
+    @MainActor
     class Coordinator: NSObject, NSTextViewDelegate, @unchecked Sendable {
-        var parent: EditorView
+        var parent: EditorRepresentable
         var currentURL: URL?
         var textStorage: PieceTableTextStorage?
-        var boundsObserver: NSObjectProtocol?
+        var boundsObserver: (any Sendable)?
         var magnificationObservation: NSKeyValueObservation?
         weak var scrollView: NSScrollView?
         private var saveTask: Task<Void, Never>?
         
-        init(_ parent: EditorView) {
+        var lastShowFindBar: Bool = false
+        var lastSearchQuery: String = ""
+        var lastCaseSensitive: Bool = false
+        var lastNavSignal: UUID? = nil
+        var lastMatches: [NSRange] = []
+        var lastMatchIndex: Int = -1
+        
+        init(_ parent: EditorRepresentable) {
             self.parent = parent
             self.currentURL = parent.fileURL
+        }
+        
+        func scrollToMatch(index: Int, matches: [NSRange]) {
+            self.lastMatches = matches
+            self.lastMatchIndex = index
+            guard let sv = scrollView, let textView = sv.documentView as? NSTextView, index >= 0, index < matches.count else { return }
+            let range = matches[index]
+            textStorage?.updateSearchMatches(matches: matches, currentIndex: index)
+            textView.layoutSubtreeIfNeeded()
+            textView.setSelectedRange(range)
+            textView.scrollRangeToVisible(range)
+        }
+        
+        func getSelectedText() -> String? {
+            guard let sv = scrollView, let textView = sv.documentView as? NSTextView else { return nil }
+            let range = textView.selectedRange()
+            if range.length > 0 && range.length < 200 {
+                let str = (textView.string as NSString).substring(with: range)
+                if !str.contains("\n") && !str.contains("\r") {
+                    return str
+                }
+            }
+            return nil
+        }
+        
+        func makeTextViewFirstResponder() {
+            guard let sv = scrollView, let textView = sv.documentView as? NSTextView else { return }
+            textView.window?.makeFirstResponder(textView)
         }
         
         func textDidChange(_ notification: Notification) {
@@ -552,9 +1044,6 @@ struct EditorView: NSViewRepresentable {
             }
             storage.load(text: loadedText, fileExtension: url.pathExtension)
             
-            // No need for layoutManager.ensureLayout in TextKit 2, layout is lazy
-            
-            // Restore scroll and magnification after text is loaded
             let savedMag = ViewStateStore.shared.getMagnification(for: url)
             let savedPos = ViewStateStore.shared.getScrollPosition(for: url)
             
@@ -575,3 +1064,4 @@ struct EditorView: NSViewRepresentable {
         }
     }
 }
+

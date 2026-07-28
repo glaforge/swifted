@@ -96,7 +96,12 @@ public enum TestRunner {
             // Highlighter Tests
             ("Highlighter: JavaScript Parsing", testHighlighterJS),
             ("Highlighter: Kotlin Parsing", testHighlighterKotlin),
-            ("Highlighter: Swift Parsing", testHighlighterSwift)
+            ("Highlighter: Swift Parsing", testHighlighterSwift),
+            
+            // Text Search Tests
+            ("TextSearch: Case Sensitivity & Matching", testTextSearchBasic),
+            ("TextSearch: Empty & No Match Handling", testTextSearchEmptyAndNoMatches),
+            ("TextSearch: Storage Match State Update", testTextSearchMatchesState)
         ]
         
         let startTime = CFAbsoluteTimeGetCurrent()
@@ -330,5 +335,55 @@ public enum TestRunner {
             name == "keyword" && (text as NSString).substring(with: range) == "struct"
         }
         try assertTrue(hasStructKeyword, "Expected struct keyword")
+    }
+    
+    // MARK: - Text Search Test Cases
+    
+    private static func testTextSearchBasic() throws {
+        let storage = PieceTableTextStorage()
+        storage.load(text: "Hello World, hello swifted, HELLO!", fileExtension: "txt")
+        
+        // Case-insensitive search for "hello"
+        let ciMatches = storage.findMatches(query: "hello", caseSensitive: false)
+        try assertEqual(ciMatches.count, 3, "Expected 3 case-insensitive matches for 'hello'")
+        try assertEqual(ciMatches[0], NSRange(location: 0, length: 5))
+        try assertEqual(ciMatches[1], NSRange(location: 13, length: 5))
+        try assertEqual(ciMatches[2], NSRange(location: 28, length: 5))
+        
+        // Case-sensitive search for "hello"
+        let csMatches = storage.findMatches(query: "hello", caseSensitive: true)
+        try assertEqual(csMatches.count, 1, "Expected 1 case-sensitive match for 'hello'")
+        try assertEqual(csMatches[0], NSRange(location: 13, length: 5))
+    }
+    
+    private static func testTextSearchEmptyAndNoMatches() throws {
+        let storage = PieceTableTextStorage()
+        storage.load(text: "Quick brown fox jumps over the lazy dog", fileExtension: "txt")
+        
+        let emptyMatches = storage.findMatches(query: "", caseSensitive: false)
+        try assertEqual(emptyMatches.count, 0, "Empty query should return 0 matches")
+        
+        let noMatches = storage.findMatches(query: "cat", caseSensitive: false)
+        try assertEqual(noMatches.count, 0, "Non-existent string should return 0 matches")
+    }
+    
+    private static func testTextSearchMatchesState() throws {
+        let storage = PieceTableTextStorage()
+        storage.load(text: "foo bar foo baz foo", fileExtension: "txt")
+        
+        let matches = storage.findMatches(query: "foo", caseSensitive: false)
+        try assertEqual(matches.count, 3)
+        
+        storage.updateSearchMatches(matches: matches, currentIndex: 1)
+        try assertEqual(storage.searchMatches.count, 3)
+        try assertEqual(storage.currentMatchIndex, 1)
+        
+        // Verify background attribute is assigned correctly for current vs other matches
+        let attrs0 = storage.attributes(at: 0, effectiveRange: nil)
+        let attrs1 = storage.attributes(at: 8, effectiveRange: nil) // second match "foo"
+        
+        try assertNotNil(attrs0[.backgroundColor], "Match 0 should have background highlight")
+        try assertNotNil(attrs1[.backgroundColor], "Match 1 should have background highlight")
+        try assertTrue((attrs0[.backgroundColor] as? NSColor) != (attrs1[.backgroundColor] as? NSColor), "Current match background should differ from other matches")
     }
 }

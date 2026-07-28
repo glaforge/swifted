@@ -19,6 +19,9 @@ extension Notification.Name {
     static let zoomIn = Notification.Name("AppZoomIn")
     static let zoomOut = Notification.Name("AppZoomOut")
     static let zoomReset = Notification.Name("AppZoomReset")
+    static let findToggle = Notification.Name("FindToggle")
+    static let findNext = Notification.Name("FindNext")
+    static let findPrevious = Notification.Name("FindPrevious")
 }
 
 enum AppTheme: String, CaseIterable, Identifiable {

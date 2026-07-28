@@ -56,6 +56,22 @@ struct SwiftedApp: App {
                 }
         }
         .commands {
+            CommandMenu("Find") {
+                Button("Find...") {
+                    NotificationCenter.default.post(name: .findToggle, object: nil)
+                }
+                .keyboardShortcut("f", modifiers: .command)
+                
+                Button("Find Next") {
+                    NotificationCenter.default.post(name: .findNext, object: nil)
+                }
+                .keyboardShortcut("g", modifiers: .command)
+                
+                Button("Find Previous") {
+                    NotificationCenter.default.post(name: .findPrevious, object: nil)
+                }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+            }
             CommandGroup(after: .toolbar) {
                 Button(showLineNumbers ? "Hide Line Numbers" : "Show Line Numbers") {
                     showLineNumbers.toggle()
