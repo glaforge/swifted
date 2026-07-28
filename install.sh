@@ -66,6 +66,9 @@ if [ -f "AppIcon.icns" ]; then
     cp "AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/"
 fi
 
+echo "📦 Copying SPM resource bundles..."
+cp -R "${BUILD_DIR}"/*.bundle "${APP_BUNDLE}/Contents/Resources/" 2>/dev/null || true
+
 echo "🚚 Copying executable..."
 cp "${BIN_PATH}" "${APP_BUNDLE}/Contents/MacOS/"
 

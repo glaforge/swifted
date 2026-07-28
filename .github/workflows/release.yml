@@ -89,6 +89,9 @@ jobs:
               cp "AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/"
           fi
 
+          echo "Copying SPM resource bundles..."
+          cp -R "${BUILD_DIR}"/*.bundle "${APP_BUNDLE}/Contents/Resources/" 2>/dev/null || true
+
           cp "${BIN_PATH}" "${APP_BUNDLE}/Contents/MacOS/"
 
           echo "Ad-hoc code signing..."
