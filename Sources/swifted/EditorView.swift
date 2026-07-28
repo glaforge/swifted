@@ -994,8 +994,11 @@ struct EditorRepresentable: NSViewRepresentable {
             saveTask = Task {
                 do {
                     try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds debounce
-                    if Task.isCancelled { return }
-                    try currentText.write(to: url, atomically: true, encoding: .utf8)
+                    try await Task.detached(priority: .background) {
+                        try currentText.write(to: url, atomically: true, encoding: .utf8)
+                    }.value
+                } catch is CancellationError {
+                    // Ignore cancellation
                 } catch {
                     print("Failed to auto-save file: \(error)")
                 }
