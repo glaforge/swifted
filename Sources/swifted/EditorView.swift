@@ -776,10 +776,12 @@ struct EditorRepresentable: NSViewRepresentable {
             object: scrollView.contentView,
             queue: .main
         ) { [weak scrollView] _ in
-            guard let sv = scrollView, let tv = sv.documentView as? NSTextView else { return }
-            if UserDefaults.standard.bool(forKey: "appWordWrap") {
-                if tv.frame.size.width != sv.contentSize.width {
-                    tv.frame.size.width = sv.contentSize.width
+            MainActor.assumeIsolated {
+                guard let sv = scrollView, let tv = sv.documentView as? NSTextView else { return }
+                if UserDefaults.standard.bool(forKey: "appWordWrap") {
+                    if tv.frame.size.width != sv.contentSize.width {
+                        tv.frame.size.width = sv.contentSize.width
+                    }
                 }
             }
         }
