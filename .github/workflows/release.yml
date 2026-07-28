@@ -1,0 +1,98 @@
+name: Release App Binary
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release macOS App
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build executable
+        run: |
+          swift build -c release
+
+      - name: Create App Bundle
+        run: |
+          APP_NAME="Swifted"
+          EXECUTABLE_NAME="swifted"
+          APP_BUNDLE="${APP_NAME}.app"
+          BUILD_DIR=".build/release"
+          BIN_PATH="${BUILD_DIR}/${EXECUTABLE_NAME}"
+
+          echo "Creating ${APP_BUNDLE} bundle..."
+          mkdir -p "${APP_BUNDLE}/Contents/MacOS"
+          mkdir -p "${APP_BUNDLE}/Contents/Resources"
+
+          cat > "${APP_BUNDLE}/Contents/Info.plist" << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>${EXECUTABLE_NAME}</string>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.swifted.app</string>
+              <key>CFBundleName</key>
+              <string>${APP_NAME}</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${GITHUB_REF_NAME#v}</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>14.0</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>CFBundleDocumentTypes</key>
+              <array>
+                  <dict>
+                      <key>CFBundleTypeRole</key>
+                      <string>Editor</string>
+                      <key>LSItemContentTypes</key>
+                      <array>
+                          <string>public.data</string>
+                          <string>public.folder</string>
+                          <string>public.directory</string>
+                          <string>public.item</string>
+                          <string>public.content</string>
+                          <string>public.source-code</string>
+                          <string>public.plain-text</string>
+                      </array>
+                  </dict>
+              </array>
+          </dict>
+          </plist>
+          EOF
+
+          if [ -f "AppIcon.icns" ]; then
+              cp "AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/"
+          fi
+
+          cp "${BIN_PATH}" "${APP_BUNDLE}/Contents/MacOS/"
+
+          echo "Ad-hoc code signing..."
+          codesign --force --deep --sign - "${APP_BUNDLE}"
+
+      - name: Package Archive
+        run: |
+          zip -r Swifted-macOS.zip Swifted.app
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Swifted-macOS.zip
+          generate_release_notes: true
