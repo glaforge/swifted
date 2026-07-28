@@ -775,9 +775,7 @@ struct EditorRepresentable: NSViewRepresentable {
             Task { @MainActor in
                 gutterView?.invalidateIntrinsicContentSize()
                 gutterView?.needsDisplay = true
-            }
-            if let url = coordinator?.currentURL, let mag = change.newValue {
-                Task { @MainActor in
+                if let url = coordinator?.currentURL, let mag = change.newValue {
                     ViewStateStore.shared.saveMagnification(mag, for: url)
                 }
             }
